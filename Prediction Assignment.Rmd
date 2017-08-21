@@ -1,0 +1,123 @@
+---
+title: "Prediction Assignment"
+author: "Damjan Stefanovski"
+date: "August 20, 2017"
+output: html_document
+---
+```{r}
+library(caret)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(tree)
+library(rpart)
+library(randomForest)
+```
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Getting and Loading the data
+
+```{r}
+# utl path, downloading 
+trainingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(trainingUrl, destfile = "./training.csv")
+download.file(testingUrl, destfile = "./testing.csv")
+
+# load data into R
+# Reading data
+training <- read.csv("./training.csv", na.strings = c("NA", "#DIV/0!"))
+testing <- read.csv("./testing.csv", na.strings = c("NA", "#DIV/0!"))
+View(training)
+View(testing)
+```
+
+Cleaning and Tyding the sets while training the data.
+all of the variables (columns) will exclude them from the analysis, here we have 160 variables in both of the sets but the testing set we have 20 observations.Some of the columns here they show only identification and will have very little impact on the prediction.
+
+```{r}
+# Remove variables in the training set with too much NAs 
+goodCol <- colSums(is.na(training)) < 1900
+myTraining <- training[ , goodCol][ , ]
+
+# Remove the same columns in the test set
+myTesting <- testing[ , goodCol][ , ]
+
+# Remove the first seven columns in both sets
+myTraining <- myTraining[ , -(1:7)]
+myTesting <- myTesting[ , -(1:7)] 
+View(myTraining)
+View(myTesting)
+```
+
+As we can see there is no change in the 19622 observations
+and we are left with 53 variables (training-set) and 20 observations with 53 variables (testing-set)
+
+#Creating Subset - training data
+For our cross validation part ww subset the training data into a real training and test set 
+```{r}
+# Create inTraining and inTesting
+set.seed(5252)
+inTrain <- createDataPartition(y = myTraining$classe, p = 0.75, list = FALSE)
+inTraining <- myTraining[inTrain, ]
+inTesting <- myTraining[-inTrain, ]
+
+```
+#Creating the model
+
+These are the three methods that I've tried: gradient boosting, random forests, and random forests using the randomForest() functiom. The first two models behaved themselves to be quite slow, so they were disregarded and my choice went with randomForest, choosed for its speed, with very few clssification errors for training, tunning and testing. The error estimate decends to near 0, shown at the plot below. 
+```{r}
+# Train with randomForest
+library(randomForest)
+set.seed(252)
+rfGrid <-  expand.grid(interaction.depth = c(1, 5, 9),
+                        n.trees = (1:30)*50,
+                        shrinkage = 0.1)
+modelFit <- randomForest(classe ~., data = inTraining, tuneGrid = rfGrid) 
+print(modelFit)
+plot(modelFit)
+```
+
+
+# Cross validation 
+the test "out of sample" data
+```{r}
+predictions <- predict(modelFit, newdata = inTesting)
+confusionMatrix(predictions, inTesting$classe)
+```
+
+Good test has been passed with 0.9953 and a  kappa of 0.9941 and excellent sensivity and specificity across the classes. 
+
+
+# The last validation for the submission results 
+# Test validation sample 
+```{r}
+answers <- predict(modelFit, newdata = myTesting, type = "response")
+```
+
+
+# Conclusion 
+
+All of the answers were validated as correct at the project submission page. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
